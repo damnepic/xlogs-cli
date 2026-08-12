@@ -1,0 +1,29 @@
+# Example: scan every successful deployment and fail the check on high or above.
+# Findings are also uploaded to the repository's Security tab as SARIF.
+#
+# xlogs is read-only: this workflow blocks a deploy, it never writes to your repo,
+# and it needs no token with write access to your code.
+name: Security scan
+
+on:
+  deployment_status:
+
+jobs:
+  xlogs:
+    # Only run once the deployment is actually live.
+    if: github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: Scan the deployed app
+        run: >
+          npx xlogs "${{ github.event.deployment_status.target_url }}"
+          --fail-on high
+          --sarif xlogs.sarif
+
+      - name: Upload results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: xlogs.sarif
