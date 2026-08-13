@@ -3,7 +3,7 @@
 **A free, read-only security scanner for AI-built web apps.** Point it at a deployed URL. It finds the mistakes that actually get exploited in vibe-coded apps, explains each one in plain English with the evidence behind it, and hands you a fix you can paste straight into your AI coding tool.
 
 ```bash
-npx xlogs https://your-app.com
+npx xlogs-scanner https://your-app.com
 ```
 
 Zero dependencies. Node 18+. No account, no API key, no repository access.
@@ -76,7 +76,7 @@ If a check cannot complete, it says `inconclusive` rather than quietly passing.
 ## Use it in CI
 
 ```bash
-npx xlogs https://your-app.com --fail-on high
+npx xlogs-scanner https://your-app.com --fail-on high
 ```
 
 Exit codes:
@@ -102,7 +102,7 @@ jobs:
     permissions:
       security-events: write
     steps:
-      - run: npx xlogs "${{ github.event.deployment_status.target_url }}" --fail-on high --sarif xlogs.sarif
+      - run: npx xlogs-scanner "${{ github.event.deployment_status.target_url }}" --fail-on high --sarif xlogs.sarif
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
@@ -114,7 +114,7 @@ Findings appear in the repository's Security tab, tagged with their CWE.
 ## Options
 
 ```
-npx xlogs <url> [options]
+npx xlogs-scanner <url> [options]
 
   --fail-on <sev>  critical | high | medium | low
   --sarif <file>   write SARIF 2.1.0
@@ -128,7 +128,7 @@ npx xlogs <url> [options]
 ## Use it as a library
 
 ```js
-import { scanUrl } from "xlogs";
+import { scanUrl } from "xlogs-scanner";
 import { toSarif } from "xlogs/sarif";
 
 const result = await scanUrl("https://your-app.com");

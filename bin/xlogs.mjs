@@ -17,11 +17,11 @@ const GATE_ORDER = ["critical", "high", "medium", "low"];
 
 const HELP = `xlogs ${VERSION} — read-only security scanner for AI-built apps
 
-  npx xlogs <url>                          scan a deployed app
-  npx xlogs <url> --fail-on high           exit 1 if anything high or above (CI gate)
-  npx xlogs <url> --sarif out.sarif        write SARIF 2.1.0 for GitHub code scanning
-  npx xlogs <url> --json                   machine-readable output
-  npx xlogs <url> --agent cursor           tailor the fix for your coding tool
+  xlogs <url>                          scan a deployed app
+  xlogs <url> --fail-on high           exit 1 if anything high or above (CI gate)
+  xlogs <url> --sarif out.sarif        write SARIF 2.1.0 for GitHub code scanning
+  xlogs <url> --json                   machine-readable output
+  xlogs <url> --agent cursor           tailor the fix for your coding tool
 
 Options
   --fail-on <sev>  critical | high | medium | low
@@ -59,6 +59,7 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     if (k === "--fail-on") a.failOn = (argv[++i] || "").toLowerCase();
+    else if (k === "--url") a.url = argv[++i] || "";
     else if (k === "--sarif") a.sarif = argv[++i] || "";
     else if (k === "--agent") a.agent = argv[++i] || "default";
     else if (k === "--json") a.json = true;
