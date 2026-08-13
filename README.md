@@ -1,5 +1,9 @@
 # xlogs
 
+[![xlogs](https://xlogs.com/api/badge?repo=damnepic/xlogs-cli)](https://xlogs.com/github-scan)
+[![npm](https://img.shields.io/npm/v/xlogs-scanner)](https://www.npmjs.com/package/xlogs-scanner)
+[![license](https://img.shields.io/npm/l/xlogs-scanner)](LICENSE)
+
 **A free, read-only security scanner for AI-built web apps.** Point it at a deployed URL. It finds the mistakes that actually get exploited in vibe-coded apps, explains each one in plain English with the evidence behind it, and hands you a fix you can paste straight into your AI coding tool.
 
 ```bash
