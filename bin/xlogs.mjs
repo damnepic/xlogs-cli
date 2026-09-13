@@ -9,6 +9,7 @@
 
 import { writeFileSync } from "node:fs";
 import { scanUrl } from "../lib/engine.mjs";
+import { STACK_ONLY_SKIPS } from "../lib/live.mjs";
 import { toSarif } from "../lib/sarif.mjs";
 import { normalizeAndValidate } from "../lib/ssrf.mjs";
 
@@ -28,6 +29,10 @@ Options
   --sarif <file>   write SARIF 2.1.0
   --json           print the full result as JSON
   --agent <name>   default | lovable | cursor | claude-code | manual
+  --stack-only     read only what a browser loading the page already fetches. Use this
+                   on a site you do NOT own: it never requests the private-file paths,
+                   never asks a database for rows, and follows no links. Those checks
+                   are marked "not checked" in the receipt, never counted as passes.
   --quiet          findings only, no banner
   -h, --help       this help
   -v, --version    print version
@@ -45,7 +50,8 @@ What it checks
 
 Read-only, always. Every request is an ordinary GET. xlogs never writes, logs in, or
 tries to exploit anything, and it needs no account and no repository access.
-Scan only apps you own or are authorised to test.  https://xlogs.com`;
+Scan only apps you own or are authorised to test, and reach for --stack-only when you
+are looking at somebody else's site.  https://xlogs.com`;
 
 const C = process.stdout.isTTY
   ? { dim: "\x1b[2m", red: "\x1b[31m", yellow: "\x1b[33m", green: "\x1b[32m", cyan: "\x1b[36m", bold: "\x1b[1m", off: "\x1b[0m" }
@@ -55,7 +61,7 @@ const SEV_COLOR = { critical: C.red, high: C.red, medium: C.yellow, low: C.dim }
 const MARK = { clear: "✓", found: "!", inconclusive: "?", "n/a": "–" };
 
 function parseArgs(argv) {
-  const a = { url: "", failOn: "", sarif: "", json: false, agent: "default", quiet: false };
+  const a = { url: "", failOn: "", sarif: "", json: false, agent: "default", quiet: false, stackOnly: false };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     if (k === "--fail-on") a.failOn = (argv[++i] || "").toLowerCase();
@@ -63,6 +69,7 @@ function parseArgs(argv) {
     else if (k === "--sarif") a.sarif = argv[++i] || "";
     else if (k === "--agent") a.agent = argv[++i] || "default";
     else if (k === "--json") a.json = true;
+    else if (k === "--stack-only") a.stackOnly = true;
     else if (k === "--quiet" || k === "-q") a.quiet = true;
     else if (k === "-h" || k === "--help") a.help = true;
     else if (k === "-v" || k === "--version") a.version = true;
@@ -89,6 +96,16 @@ function render(r, agent) {
   out.push("");
   out.push(`${C.bold}${r.url}${C.off} ${C.dim}scanned in ${(r.durationMs / 1000).toFixed(1)}s${C.off}`);
   out.push("");
+
+  // Say the mode before the verdict, not after it. A stack-only scan skips three checks, and a
+  // reader who meets "nothing serious found" first has already drawn a conclusion the scan did
+  // not earn. The receipt below marks each skipped check "not checked"; this is the headline.
+  if (r.stackOnly) {
+    out.push(`${C.yellow}stack-only scan: ${STACK_ONLY_SKIPS.length} checks did not run${C.off}`);
+    for (const s of STACK_ONLY_SKIPS) out.push(`  ${C.dim}not checked — ${s.name}: ${s.why}${C.off}`);
+    out.push(`  ${C.dim}This is the mode for a site you do not own. It is not a security verdict.${C.off}`);
+    out.push("");
+  }
 
   if (r.verdict && r.verdict.level !== "issues") {
     out.push(`${C.green}✓ ${r.verdict.headline}${C.off}`);
@@ -136,11 +153,23 @@ async function main() {
     return;
   }
 
+  // A GATE MUST NOT BE ABLE TO PASS BY NOT LOOKING. --stack-only drops the private-file and
+  // database checks, so a CI gate running it would report "no findings at or above high" on an
+  // app serving its own .env. The combination is also incoherent: a gate blocks YOUR deploy of
+  // YOUR app, and stack-only exists for a site you do not own.
+  if (a.stackOnly && (a.failOn || a.sarif)) {
+    process.stderr.write("xlogs: --stack-only cannot be combined with --fail-on or --sarif.\n");
+    process.stderr.write("       It skips the private-file and database checks, so a gate would pass\n");
+    process.stderr.write("       because it did not look. Drop --stack-only to gate your own deploy.\n");
+    process.exitCode = 3;
+    return;
+  }
+
   const v = normalizeAndValidate(a.url);
   if (!v.ok) { process.stderr.write(`xlogs: ${v.reason}\n`); process.exitCode = 3; return; }
 
-  if (!a.quiet && !a.json) process.stderr.write(`xlogs: scanning ${v.url} (read-only)\n`);
-  const result = await scanUrl(v.url);
+  if (!a.quiet && !a.json) process.stderr.write(`xlogs: scanning ${v.url} (read-only${a.stackOnly ? ", stack-only" : ""})\n`);
+  const result = await scanUrl(v.url, { stackOnly: a.stackOnly });
 
   if (!result.reachable) {
     process.stderr.write(`xlogs: could not reach ${v.url}. Is it deployed and public?\n`);
