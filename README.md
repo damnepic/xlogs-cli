@@ -31,14 +31,18 @@ xlogs checks for exactly these, from the outside, the way a stranger would see t
 | Check | What it proves |
 |---|---|
 | Publicly readable database | Asks your Supabase tables for data as a logged-out stranger. Rows coming back means anyone can read them. |
-| Secret keys in the browser | Reads your shipped JavaScript against 9 key formats (Stripe, OpenAI, Anthropic, AWS, Google, GitHub, Slack, private keys, Supabase `service_role`). |
-| Missing security headers | Reports absent CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy. |
+| Secret keys in the browser | Reads your shipped JavaScript against 18 key formats, among them Stripe, OpenAI, Anthropic, OpenRouter, AWS, Google, GitHub, GitLab, Slack, SendGrid, database URLs with a password, private keys, and Supabase secret and `service_role` keys. |
+| Missing security headers | Reports absent CSP, HSTS, X-Frame-Options, X-Content-Type-Options and Referrer-Policy, a header that is set but does nothing (HSTS `max-age=0`, a report-only CSP), and cookies missing Secure, HttpOnly or SameSite. |
+| Auth tokens in browser storage | Whether your code writes a token to `localStorage` or `sessionStorage`, where any script on the page can read it. |
 | Exposed source maps | Whether production serves `.map` files that rebuild your original code. |
-| Private files served publicly | Whether `.env` or `.git` are reachable. |
+| Private files served publicly | Whether `.env`, `.env.local`, `.env.production`, `.git/config`, `.git/HEAD` or `.vscode/sftp.json` are reachable. |
+| Dependency list served publicly | Whether `/package-lock.json` is served, and if it is, which pinned packages have known advisories in the OSV database. |
+| Scripts from compromised CDNs | Compares every third-party script host against a list of publicly documented compromised CDNs. Unknown hosts are listed, never flagged. |
 | Dangling DNS | Whether a DNS record points at a service that is gone, so someone else could claim it. |
-| Email spoofing protection | Whether your domain publishes SPF and DMARC. |
+| Other addresses on your domain | Lists the other names public certificate logs show on your domain. Inventory, never a finding: a certificate proves a name was issued, not that anything is wrong. |
+| Email spoofing protection | Whether your domain publishes SPF and DMARC, and whether DMARC enforces anything. |
 
-It also reports what built the app, where it is hosted, the external services it references, and other addresses on your domain found in public certificate logs.
+It also reports what built the app, where it is hosted, and the external services it references.
 
 ## Read-only, always
 
@@ -70,7 +74,7 @@ A clean result is only useful if you can tell "we looked and it held" from "we d
 ```
 what we checked
   ✓ Database exposed to the public     Asked 6 tables for data as a logged-out stranger. None returned rows.
-  ✓ Secret keys shipped to the browser Read 4 of 4 scripts your app loads, checking each against 9 key formats.
+  ✓ Secret keys shipped to the browser Read 4 of 4 same-origin scripts your app loads, checking each against 18 key formats.
   ! Protective security headers        Checked 5 headers on your homepage response. 2 of 5 were set.
   · Original source code downloadable  No bundles referenced a source map, so there was nothing to expose.
 ```
@@ -115,7 +119,7 @@ jobs:
     if: github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: damnepic/xlogs-cli@v0.2.2
+      - uses: damnepic/xlogs-cli@v0.2.3
         with:
           url: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
           fail-on: high
@@ -144,13 +148,13 @@ SHA rather than a tag if your policy requires it.
 any MCP client can scan your deployment and read back the findings, the receipt and the fixes.
 
 ```bash
-claude mcp add xlogs -- npx -y github:damnepic/xlogs-cli#v0.2.2 mcp
+claude mcp add xlogs -- npx -y github:damnepic/xlogs-cli#v0.2.3 mcp
 ```
 
 Any other client takes the same command in its MCP config:
 
 ```json
-{ "mcpServers": { "xlogs": { "command": "npx", "args": ["-y", "github:damnepic/xlogs-cli#v0.2.2", "mcp"] } } }
+{ "mcpServers": { "xlogs": { "command": "npx", "args": ["-y", "github:damnepic/xlogs-cli#v0.2.3", "mcp"] } } }
 ```
 
 Four tools: `xlogs_scan` (findings, with a `stack_only` option for a site you do not own),

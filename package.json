@@ -1,6 +1,6 @@
 {
   "name": "xlogs-scanner",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Free, read-only security scanner for AI-built web apps. Point it at a deployed URL: finds publicly readable databases, secret keys shipped to the browser, missing protections, and hands you a fix you can paste into your AI coding tool.",
   "type": "module",
   "bin": {
