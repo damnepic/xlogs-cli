@@ -115,7 +115,7 @@ jobs:
     if: github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: damnepic/xlogs-cli@v0.2.1
+      - uses: damnepic/xlogs-cli@v0.2.2
         with:
           url: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
           fail-on: high
@@ -144,13 +144,13 @@ SHA rather than a tag if your policy requires it.
 any MCP client can scan your deployment and read back the findings, the receipt and the fixes.
 
 ```bash
-claude mcp add xlogs -- npx -y github:damnepic/xlogs-cli#v0.2.1 mcp
+claude mcp add xlogs -- npx -y github:damnepic/xlogs-cli#v0.2.2 mcp
 ```
 
 Any other client takes the same command in its MCP config:
 
 ```json
-{ "mcpServers": { "xlogs": { "command": "npx", "args": ["-y", "github:damnepic/xlogs-cli#v0.2.1", "mcp"] } } }
+{ "mcpServers": { "xlogs": { "command": "npx", "args": ["-y", "github:damnepic/xlogs-cli#v0.2.2", "mcp"] } } }
 ```
 
 Four tools: `xlogs_scan` (findings, with a `stack_only` option for a site you do not own),
