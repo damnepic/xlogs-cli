@@ -24,7 +24,7 @@
 // the codebase. It NEVER writes anything but protocol messages to stdout; diagnostics go to stderr.
 //
 // Register (.mcp.json in Claude Code / Cursor / Windsurf), from the public CLI repository:
-//   { "mcpServers": { "xlogs": { "command": "npx", "args": ["-y", "github:damnepic/xlogs-cli#v0.2.0", "mcp"] } } }
+//   { "mcpServers": { "xlogs": { "command": "npx", "args": ["-y", "github:damnepic/xlogs-cli#v0.2.1", "mcp"] } } }
 // ============================================================================
 import { scanUrl } from "./lib/engine.mjs";
 import { normalizeAndValidate } from "./lib/ssrf.mjs";
@@ -41,7 +41,8 @@ const log = (...a) => process.stderr.write("[xlogs-mcp] " + a.join(" ") + "\n");
 const TOOLS = MCP_TOOLS;
 
 function severityLine(f) {
-  return `[${String(f.severity || "").toUpperCase()}] ${f.title}${f.location ? ` at ${f.location}` : ""}\n    ${f.observed || f.plain || ""}`.trimEnd();
+  const base = f.builderBaseline ? `\n    ${f.builderBaseline.text}` : "";
+  return `[${String(f.severity || "").toUpperCase()}] ${f.title}${f.location ? ` at ${f.location}` : ""}\n    ${f.observed || f.plain || ""}${base}`.trimEnd();
 }
 
 // ONE RUN PER CONVERSATION (XL-324, 2026-09-30). Every tool used to call scanUrl, and
