@@ -24,6 +24,11 @@ async function main() {
     const p = new URL(req.url, base || "http://x").pathname;
     if (p === "/") { res.writeHead(200, { "content-type": "text/html" }); res.end(`<script src="/app.js"></script>`); }
     else if (p === "/app.js") { res.writeHead(200, { "content-type": "text/javascript" }); res.end(`const SB="${base}/rest/v1";const KEY="${ANON}";`); }
+    // GRADING fixture: a PostgREST that still serves its schema to anon (PostgREST's own default,
+    // e.g. self-hosted). HOSTED Supabase has refused this to public keys since 2026-04-08, and the
+    // scanner then reports the database as NOT checked, never as a pass; the upstream repo tests
+    // that path in test/supabase-truth.test.mjs. This smoke test checks detection and grading once
+    // a table name is known, so it needs the schema.
     else if (p === "/rest/v1/") { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ definitions: { customers: {} } })); }
     else if (p === "/rest/v1/customers") { res.writeHead(200, { "content-type": "application/json", "content-range": "0-0/42" }); res.end(JSON.stringify([{ id: 1, email: "a@b.test" }])); }
     else { res.writeHead(404); res.end("[]"); }

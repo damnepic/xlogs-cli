@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// xlogs — a free, read-only security scanner for AI-built web apps.
+// xlogs: a free, read-only security scanner for AI-built web apps.
 //
 // Point it at a deployed URL. It finds the security mistakes that actually get
 // exploited in vibe-coded apps, explains each in plain English with the evidence
@@ -12,17 +12,19 @@ import { scanUrl } from "../lib/engine.mjs";
 import { STACK_ONLY_SKIPS } from "../lib/live.mjs";
 import { toSarif } from "../lib/sarif.mjs";
 import { normalizeAndValidate } from "../lib/ssrf.mjs";
+import { gateDecision } from "../lib/gate.mjs";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const GATE_ORDER = ["critical", "high", "medium", "low"];
 
-const HELP = `xlogs ${VERSION} — read-only security scanner for AI-built apps
+const HELP = `xlogs ${VERSION}: read-only security scanner for AI-built apps
 
   xlogs <url>                          scan a deployed app
   xlogs <url> --fail-on high           exit 1 if anything high or above (CI gate)
   xlogs <url> --sarif out.sarif        write SARIF 2.1.0 for GitHub code scanning
   xlogs <url> --json                   machine-readable output
   xlogs <url> --agent cursor           tailor the fix for your coding tool
+  xlogs mcp                            run as an MCP server over stdio, for a coding agent
 
 Options
   --fail-on <sev>  critical | high | medium | low
@@ -33,6 +35,9 @@ Options
                    on a site you do NOT own: it never requests the private-file paths,
                    never asks a database for rows, and follows no links. Those checks
                    are marked "not checked" in the receipt, never counted as passes.
+  --allow-inconclusive  let the gate pass when a check could not run (each one is still
+                   named). Off by default: a gate that could not test your database
+                   has not passed it.
   --quiet          findings only, no banner
   -h, --help       this help
   -v, --version    print version
@@ -42,6 +47,7 @@ Exit codes
   1  a finding at or above --fail-on
   2  a critical finding (when --fail-on is not used)
   3  usage error, or the target could not be reached
+  4  gate could not verify: nothing at or above --fail-on, but a check could not run
 
 What it checks
   publicly readable database (Supabase RLS) · secret keys shipped to the browser ·
@@ -58,10 +64,10 @@ const C = process.stdout.isTTY
   : { dim: "", red: "", yellow: "", green: "", cyan: "", bold: "", off: "" };
 
 const SEV_COLOR = { critical: C.red, high: C.red, medium: C.yellow, low: C.dim };
-const MARK = { clear: "✓", found: "!", inconclusive: "?", "n/a": "–" };
+const MARK = { clear: "✓", found: "!", inconclusive: "?", "n/a": "·" };
 
 function parseArgs(argv) {
-  const a = { url: "", failOn: "", sarif: "", json: false, agent: "default", quiet: false, stackOnly: false };
+  const a = { url: "", failOn: "", sarif: "", json: false, agent: "default", quiet: false, stackOnly: false, allowInconclusive: false };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     if (k === "--fail-on") a.failOn = (argv[++i] || "").toLowerCase();
@@ -70,6 +76,7 @@ function parseArgs(argv) {
     else if (k === "--agent") a.agent = argv[++i] || "default";
     else if (k === "--json") a.json = true;
     else if (k === "--stack-only") a.stackOnly = true;
+    else if (k === "--allow-inconclusive") a.allowInconclusive = true;
     else if (k === "--quiet" || k === "-q") a.quiet = true;
     else if (k === "-h" || k === "--help") a.help = true;
     else if (k === "-v" || k === "--version") a.version = true;
@@ -102,7 +109,7 @@ function render(r, agent) {
   // not earn. The receipt below marks each skipped check "not checked"; this is the headline.
   if (r.stackOnly) {
     out.push(`${C.yellow}stack-only scan: ${STACK_ONLY_SKIPS.length} checks did not run${C.off}`);
-    for (const s of STACK_ONLY_SKIPS) out.push(`  ${C.dim}not checked — ${s.name}: ${s.why}${C.off}`);
+    for (const s of STACK_ONLY_SKIPS) out.push(`  ${C.dim}not checked: ${s.name}, ${s.why}${C.off}`);
     out.push(`  ${C.dim}This is the mode for a site you do not own. It is not a security verdict.${C.off}`);
     out.push("");
   }
@@ -144,6 +151,13 @@ function render(r, agent) {
 }
 
 async function main() {
+  // `xlogs mcp`: the same read-only scanner as MCP tools over stdio, for Claude Code, Cursor and any
+  // MCP client. Imported only here, so a normal scan never loads it.
+  if (process.argv[2] === "mcp") {
+    const { startStdio } = await import("../mcp-server.mjs");
+    startStdio();
+    return;
+  }
   const a = parseArgs(process.argv.slice(2));
   if (a.version) { process.stdout.write(VERSION + "\n"); return; }
   if (a.help || !a.url) { process.stdout.write(HELP + "\n"); process.exitCode = a.url ? 0 : 3; return; }
@@ -185,15 +199,10 @@ async function main() {
   else process.stdout.write(render(result, a.agent));
 
   if (a.failOn) {
-    const idx = GATE_ORDER.indexOf(a.failOn);
-    const allowed = new Set(GATE_ORDER.slice(0, idx + 1));
-    const failures = result.findings.filter((f) => allowed.has(f.severity));
-    if (failures.length) {
-      process.stderr.write(`xlogs: GATE FAILED — ${failures.length} finding(s) at or above ${a.failOn}\n`);
-      return finish(1);
-    }
-    if (!a.quiet) process.stderr.write(`xlogs: gate passed — nothing at or above ${a.failOn}\n`);
-    return finish(0);
+    // One decision for both CLIs (lib/gate.mjs): a finding fails, an untested check is not a pass.
+    const d = gateDecision({ findings: result.findings, verdict: result.verdict }, a.failOn, { allowInconclusive: a.allowInconclusive });
+    for (const line of d.lines) if (d.code !== 0 || !a.quiet) process.stderr.write(`xlogs: ${line}\n`);
+    return finish(d.code);
   }
 
   return finish((result.counts?.critical || 0) > 0 ? 2 : 0);

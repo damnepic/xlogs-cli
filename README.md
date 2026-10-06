@@ -72,7 +72,7 @@ what we checked
   ✓ Database exposed to the public     Asked 6 tables for data as a logged-out stranger. None returned rows.
   ✓ Secret keys shipped to the browser Read 4 of 4 scripts your app loads, checking each against 9 key formats.
   ! Protective security headers        Checked 5 headers on your homepage response. 2 of 5 were set.
-  – Original source code downloadable  No bundles referenced a source map, so there was nothing to expose.
+  · Original source code downloadable  No bundles referenced a source map, so there was nothing to expose.
 ```
 
 If a check cannot complete, it says `inconclusive` rather than quietly passing.
@@ -91,29 +91,72 @@ Exit codes:
 | `1` | A finding at or above `--fail-on` |
 | `2` | A critical finding (when `--fail-on` is not used) |
 | `3` | Usage error, or the target could not be reached |
+| `4` | Nothing at or above `--fail-on`, but a security check could not run, so the gate cannot call it a pass |
+
+Exit 4 is new. The most common cause: hosted Supabase stopped letting a public key list a project's tables in April 2026, so the database check cannot run on most Supabase apps. A gate that could not test your database has not passed it. Add `--allow-inconclusive` to accept such gaps explicitly; the gate still names every check that did not run.
 
 The gate is read-only. It blocks a deploy; it never touches your repository and needs no token with write access.
 
 ### GitHub Actions
 
+This repository is a GitHub Action. It runs the scanner from the tag you pin, so it needs nothing
+from npm, no token and no checkout of your code:
+
 ```yaml
 name: Security
-on: [deployment_status]
+on: deployment_status
+
+permissions:
+  security-events: write   # only for the SARIF upload; the scan itself needs no permission
 
 jobs:
   xlogs:
+    # deployment_status fires for pending and failed deployments too; scan only a live one.
+    if: github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
-    permissions:
-      security-events: write
     steps:
-      - run: npx xlogs-scanner "${{ github.event.deployment_status.target_url }}" --fail-on high --sarif xlogs.sarif
+      - uses: damnepic/xlogs-cli@v0.2.0
+        with:
+          url: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          fail-on: high
+          sarif: xlogs.sarif
       - uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always()   # upload the findings even when the gate failed the job
         with:
           sarif_file: xlogs.sarif
 ```
 
-Findings appear in the repository's Security tab, tagged with their CWE.
+Inputs: `url` (required), `fail-on` (default `high`), `allow-inconclusive` (default `false`) and
+`sarif` (optional path). The URL is handed to the scanner as an environment variable, never pasted
+into a shell command, so an event payload cannot become code. There is deliberately no stack-only
+input: a gate that skipped the private-file and database checks would pass by not looking.
+
+If your preview deployments sit behind a login (Vercel Deployment Protection, for example), the
+scanner reads the login page, not your app, and the gate fails with exit 4 rather than passing.
+Point it at your production URL instead, on a schedule or after a production deploy.
+
+Findings appear in the repository's Security tab, tagged with their CWE. Pin the action to a commit
+SHA rather than a tag if your policy requires it.
+
+## Use it from your coding agent (MCP)
+
+`xlogs mcp` runs the same scanner as an MCP server over stdio, so Claude Code, Cursor, Windsurf or
+any MCP client can scan your deployment and read back the findings, the receipt and the fixes.
+
+```bash
+claude mcp add xlogs -- npx -y github:damnepic/xlogs-cli#v0.2.0 mcp
+```
+
+Any other client takes the same command in its MCP config:
+
+```json
+{ "mcpServers": { "xlogs": { "command": "npx", "args": ["-y", "github:damnepic/xlogs-cli#v0.2.0", "mcp"] } } }
+```
+
+Four tools: `xlogs_scan` (findings, with a `stack_only` option for a site you do not own),
+`xlogs_receipt` (what was and was not checked), `xlogs_fix` (one paste-ready fix document) and
+`xlogs_supabase_audit_sql` (read-only SQL you run yourself). The scan runs on your machine; nothing
+is sent to xlogs. Needs Node 18.18+ and git (npx fetches the tagged release from GitHub).
 
 ## Options
 
@@ -124,9 +167,13 @@ npx xlogs-scanner <url> [options]
   --sarif <file>   write SARIF 2.1.0
   --json           full result as JSON
   --agent <name>   default | lovable | cursor | claude-code | manual
+  --stack-only     read only what a browser already fetches (for sites you do not own)
+  --allow-inconclusive  let --fail-on pass when a check could not run (still named)
   --quiet          findings only
   -h, --help       help
   -v, --version    version
+
+npx xlogs-scanner mcp    run as an MCP server over stdio (see above)
 ```
 
 ## Use it as a library

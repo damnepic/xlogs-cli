@@ -1,0 +1,46 @@
+name: xlogs security gate
+description: Read-only scan of your deployed app. Fails the job when it finds something at or above a severity, or when a check could not run.
+author: xlogs
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  url:
+    description: The deployed URL to scan, e.g. https://your-app.com
+    required: true
+  fail-on:
+    description: Fail the job on a finding at or above this severity (critical, high, medium or low).
+    required: false
+    default: high
+  allow-inconclusive:
+    description: Pass even when a check could not run. Every check that did not run is still named in the log.
+    required: false
+    default: "false"
+  sarif:
+    description: Optional path to write a SARIF 2.1.0 report to, for GitHub code scanning.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Scan with xlogs
+      shell: bash
+      # Inputs reach the script ONLY as environment variables, never interpolated into the script text,
+      # so a URL from an event payload cannot become shell code. No stack-only input: a gate that skips
+      # the private-file and database checks would pass by not looking, and the CLI refuses that pair.
+      env:
+        XLOGS_URL: ${{ inputs.url }}
+        XLOGS_FAIL_ON: ${{ inputs.fail-on }}
+        XLOGS_ALLOW_INCONCLUSIVE: ${{ inputs.allow-inconclusive }}
+        XLOGS_SARIF: ${{ inputs.sarif }}
+      run: |
+        set -u
+        if [ -z "$XLOGS_URL" ]; then echo "::error::xlogs: the url input is empty"; exit 3; fi
+        major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+        if [ "$major" -lt 18 ]; then echo "::error::xlogs needs Node 18.18 or newer on the runner (found $(node -v 2>/dev/null || echo none))"; exit 3; fi
+        args=("$XLOGS_URL" --fail-on "$XLOGS_FAIL_ON")
+        if [ "$XLOGS_ALLOW_INCONCLUSIVE" = "true" ]; then args+=(--allow-inconclusive); fi
+        if [ -n "$XLOGS_SARIF" ]; then args+=(--sarif "$XLOGS_SARIF"); fi
+        node "$GITHUB_ACTION_PATH/bin/xlogs.mjs" "${args[@]}"

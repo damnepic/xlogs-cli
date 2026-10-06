@@ -1,26 +1,57 @@
 {
   "name": "xlogs-scanner",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Free, read-only security scanner for AI-built web apps. Point it at a deployed URL: finds publicly readable databases, secret keys shipped to the browser, missing protections, and hands you a fix you can paste into your AI coding tool.",
   "type": "module",
-  "bin": { "xlogs": "bin/xlogs.mjs" },
+  "bin": {
+    "xlogs": "bin/xlogs.mjs"
+  },
   "main": "lib/engine.mjs",
   "exports": {
     ".": "./lib/engine.mjs",
     "./sarif": "./lib/sarif.mjs"
   },
-  "files": ["bin", "lib", "README.md", "LICENSE"],
+  "files": [
+    "bin",
+    "lib",
+    "mcp-server.mjs",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "test": "node test/smoke.mjs"
+    "test": "node test/smoke.mjs && node test/mcp-smoke.mjs"
   },
   "keywords": [
-    "security", "scanner", "vibe-coding", "supabase", "rls", "lovable", "bolt", "v0",
-    "replit", "cursor", "sarif", "appsec", "secrets", "dast", "ai-generated-code"
+    "security",
+    "scanner",
+    "vibe-coding",
+    "supabase",
+    "rls",
+    "lovable",
+    "bolt",
+    "v0",
+    "replit",
+    "cursor",
+    "sarif",
+    "appsec",
+    "secrets",
+    "dast",
+    "ai-generated-code",
+    "mcp",
+    "mcp-server",
+    "github-action"
   ],
   "homepage": "https://xlogs.com",
-  "repository": { "type": "git", "url": "git+https://github.com/damnepic/xlogs-cli.git" },
-  "bugs": { "url": "https://github.com/damnepic/xlogs-cli/issues" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/damnepic/xlogs-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/damnepic/xlogs-cli/issues"
+  },
   "license": "MIT",
-  "engines": { "node": ">=18.18" },
+  "engines": {
+    "node": ">=18.18"
+  },
   "dependencies": {}
 }
