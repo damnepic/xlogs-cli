@@ -24,7 +24,7 @@
 // the codebase. It NEVER writes anything but protocol messages to stdout; diagnostics go to stderr.
 //
 // Register (.mcp.json in Claude Code / Cursor / Windsurf), from the public CLI repository:
-//   { "mcpServers": { "xlogs": { "command": "npx", "args": ["-y", "github:damnepic/xlogs-cli#v0.2.3", "mcp"] } } }
+//   { "mcpServers": { "xlogs": { "command": "npx", "args": ["-y", "github:damnepic/xlogs-cli#v0.2.4", "mcp"] } } }
 // ============================================================================
 import { scanUrl } from "./lib/engine.mjs";
 import { normalizeAndValidate } from "./lib/ssrf.mjs";

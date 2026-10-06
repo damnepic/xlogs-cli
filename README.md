@@ -75,7 +75,7 @@ A clean result is only useful if you can tell "we looked and it held" from "we d
 what we checked
   ✓ Database exposed to the public     Asked 6 tables for data as a logged-out stranger. None returned rows.
   ✓ Secret keys shipped to the browser Read 4 of 4 same-origin scripts your app loads, checking each against 18 key formats.
-  ! Protective security headers        Checked 5 headers on your homepage response. 2 of 5 were set.
+  ! Protective security headers        Checked 5 headers on your homepage response. 2 of 5 were set. It sets no cookies.
   · Original source code downloadable  No bundles referenced a source map, so there was nothing to expose.
 ```
 
@@ -119,7 +119,7 @@ jobs:
     if: github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: damnepic/xlogs-cli@v0.2.3
+      - uses: damnepic/xlogs-cli@v0.2.4
         with:
           url: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
           fail-on: high
@@ -148,13 +148,13 @@ SHA rather than a tag if your policy requires it.
 any MCP client can scan your deployment and read back the findings, the receipt and the fixes.
 
 ```bash
-claude mcp add xlogs -- npx -y github:damnepic/xlogs-cli#v0.2.3 mcp
+claude mcp add xlogs -- npx -y github:damnepic/xlogs-cli#v0.2.4 mcp
 ```
 
 Any other client takes the same command in its MCP config:
 
 ```json
-{ "mcpServers": { "xlogs": { "command": "npx", "args": ["-y", "github:damnepic/xlogs-cli#v0.2.3", "mcp"] } } }
+{ "mcpServers": { "xlogs": { "command": "npx", "args": ["-y", "github:damnepic/xlogs-cli#v0.2.4", "mcp"] } } }
 ```
 
 Four tools: `xlogs_scan` (findings, with a `stack_only` option for a site you do not own),

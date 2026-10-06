@@ -14,7 +14,7 @@ import { toSarif } from "../lib/sarif.mjs";
 import { normalizeAndValidate } from "../lib/ssrf.mjs";
 import { gateDecision } from "../lib/gate.mjs";
 
-const VERSION = "0.2.3";
+const VERSION = "0.2.4";
 const GATE_ORDER = ["critical", "high", "medium", "low"];
 
 const HELP = `xlogs ${VERSION}: read-only security scanner for AI-built apps
