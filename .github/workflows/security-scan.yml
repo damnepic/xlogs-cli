@@ -3,27 +3,30 @@
 #
 # xlogs is read-only: this workflow blocks a deploy, it never writes to your repo,
 # and it needs no token with write access to your code.
+#
+# It uses this repository as a GitHub Action, pinned to a release tag. Until 2026-10-07 it ran the
+# scanner through npx under the bare name xlogs, but that npm name belongs to an unrelated package,
+# so copying it fetched a stranger's code; and it pasted the deployment URL into the shell command,
+# where an event payload can become code. The action passes the URL as an environment variable.
 name: Security scan
 
-on:
-  deployment_status:
+on: deployment_status
+
+permissions:
+  security-events: write   # only for the SARIF upload; the scan itself needs no permission
 
 jobs:
   xlogs:
-    # Only run once the deployment is actually live.
+    # deployment_status fires for pending and failed deployments too; scan only a live one.
     if: github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
-    permissions:
-      security-events: write
     steps:
-      - name: Scan the deployed app
-        run: >
-          npx xlogs "${{ github.event.deployment_status.target_url }}"
-          --fail-on high
-          --sarif xlogs.sarif
-
-      - name: Upload results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+      - uses: damnepic/xlogs-cli@v0.2.4
+        with:
+          url: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          fail-on: high
+          sarif: xlogs.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()   # upload the findings even when the gate failed the job
         with:
           sarif_file: xlogs.sarif
